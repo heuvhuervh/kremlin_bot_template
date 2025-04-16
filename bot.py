@@ -10,6 +10,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 import os
 
 TOKEN = os.getenv("BOT_TOKEN")
+bot = Bot(token=TOKEN)
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
 
@@ -420,6 +421,11 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(main())  # запускаем aiogram бота
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
+if not TOKEN:
+    raise ValueError("BOT_TOKEN is not set or is empty!")
+
+
 
 
 
