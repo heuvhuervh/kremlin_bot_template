@@ -1,3 +1,4 @@
+from fastapi import FastAPI
 import logging
 import asyncio
 import random
