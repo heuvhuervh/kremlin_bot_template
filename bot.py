@@ -10,7 +10,6 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 import os
 
 TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=TOKEN)
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
 
@@ -425,10 +424,6 @@ if __name__ == "__main__":
 if not TOKEN:
     raise ValueError("BOT_TOKEN is not set or is empty!")
 
-from dotenv import load_dotenv
-import os
-
-load_dotenv()  # Загружаем переменные из .env файла
 
 
 
