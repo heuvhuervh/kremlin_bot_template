@@ -1,2 +1,5 @@
 aiogram
 aiohttp
+uvicorn
+fastapi
+

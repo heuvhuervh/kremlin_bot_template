@@ -408,5 +408,16 @@ async def handle_callback(callback: types.CallbackQuery):
 async def main():
     await dp.start_polling(bot)
 
+from fastapi import FastAPI
+import uvicorn
+
+app = FastAPI()
+
+@app.get("/")
+def root():
+    return {"message": "Bot is running!"}
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())  # Запускаем Telegram-бота
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))  # Открываем порт для Render
