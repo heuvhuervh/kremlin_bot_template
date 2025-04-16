@@ -425,6 +425,11 @@ if __name__ == "__main__":
 if not TOKEN:
     raise ValueError("BOT_TOKEN is not set or is empty!")
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()  # Загружаем переменные из .env файла
+
 
 
 
