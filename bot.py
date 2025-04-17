@@ -13,16 +13,23 @@ from aiogram.types import (
 )
 import os
 from contextlib import asynccontextmanager
+from math import radians, sin, cos, sqrt, atan2  # Добавлен импорт математических функций
 
+# Инициализация FastAPI
+app = FastAPI()
+
+# Настройка логгирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Получение переменных окружения
 TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
 
-logging.basicConfig(level=logging.INFO)
-
-# Глобальные переменные для бота
-bot = None
-dp = None
+# Инициализация бота и диспетчера
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
 
 # Основная клавиатура
 keyboard = ReplyKeyboardMarkup(
@@ -46,16 +53,12 @@ answer_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-# Клавиатура "О Кремле"
+# Клавиатура "О Кремле" (убрана кнопка "Интересные места")
 kremlin_inline_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="📜 История", callback_data="history")],
         [InlineKeyboardButton(text="🗺 Схема Кремля", callback_data="map")],
-        [
-            InlineKeyboardButton(
-                text="📸 Исторические фото", callback_data="historical_photos"
-            )
-        ],
+        [InlineKeyboardButton(text="📸 Исторические фото", callback_data="historical_photos")],
     ]
 )
 
@@ -64,23 +67,15 @@ history_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="Довмонтов город", callback_data="history_dovmont")],
         [InlineKeyboardButton(text="Перси", callback_data="history_persi")],
-        [
-            InlineKeyboardButton(
-                text="Вечевая площадь", callback_data="history_vechevaya"
-            )
-        ],
+        [InlineKeyboardButton(text="Вечевая площадь", callback_data="history_vechevaya")],
         [InlineKeyboardButton(text="Троицкий собор", callback_data="history_trinity")],
-        [
-            InlineKeyboardButton(
-                text="Благовещенский собор", callback_data="history_annunciation"
-            )
-        ],
+        [InlineKeyboardButton(text="Благовещенский собор", callback_data="history_annunciation")],
         [InlineKeyboardButton(text="Башни", callback_data="history_towers")],
         [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
     ]
 )
 
-# Вся информация о Кремле
+# Вся информация о Кремле (полностью сохранена, включая раздел places)
 kremlin_info = {
     "history": "📜 Выберите интересующий раздел истории Псковского Кремля:",
     "history_dovmont": """🏰 Довмонтов город - музей под открытым небом
@@ -184,7 +179,7 @@ kremlin_info = {
     "map": "🗺 Схема Псковского Кремля",
 }
 
-# Все фото
+# Все фото (полностью сохранены)
 photo_urls = [
     "https://wikiway.com/upload/hl-photo/2ab/747/pskovskiy_kreml_29.jpg",
     "https://wikiway.com/upload/hl-photo/f18/15b/pskovskiy_kreml_26.jpg",
@@ -204,7 +199,7 @@ photo_urls = [
     "https://sun9-46.userapi.com/impg/pf2xWQJW0y6kkNUIH662MeddoVBfXyWP5iASAA/kpgzJopajJY.jpg?size=902x1032&quality=95&sign=e3c7e25350df964a21b9ab4319909230&type=album",
 ]
 
-# Исторические фото
+# Исторические фото (полностью сохранены)
 historical_photo_urls = [
     "https://sun9-6.userapi.com/impg/B8l5F5IPWR_KD7dev8uKCByIeujxLOSVW2YNWA/tnPqvpcgwTw.jpg?size=1600x1058&quality=95&sign=9d5d1483cd561dd86107922135fb7b88&type=album",
     "https://sun9-5.userapi.com/impg/X_csfph-aGP7OJy_aCl5DTivCULXU7C_3vE1cA/LX6tAQEu49c.jpg?size=1287x970&quality=95&sign=1972d6031fab6a31f5f67642d3c06bbf&type=album",
@@ -219,7 +214,7 @@ historical_photo_urls = [
     "https://sun9-27.userapi.com/impg/4OIeZlW1pqp4fPWX7lqNBEIjhQv8JbzC4Z-RsA/MiOaROICN0A.jpg?size=1476x1008&quality=95&sign=d962477ca1e9d72921bb4f631c649395&type=album",
 ]
 
-# Загадки
+# Загадки (полностью сохранены)
 riddles_list = [
     ("Какая река протекает рядом с Псковским Кремлем?", "великая"),
     ("Какая река протекает рядом с Псковским Кремлем?", "пскова"),
@@ -232,6 +227,7 @@ riddles_list = [
     ),
 ]
 
+# Глобальные переменные для хранения состояния
 user_riddles = {}
 user_riddle_lists = {}
 
@@ -239,52 +235,7 @@ user_riddle_lists = {}
 KREMLIN_LAT = 57.8222
 KREMLIN_LON = 28.3281
 
-
-# Функция для получения погоды
-async def get_weather(city: str = "Псков"):
-    try:
-        async with aiohttp.ClientSession() as session:
-            params = {
-                "q": city,
-                "appid": WEATHER_API_KEY,
-                "units": "metric",
-                "lang": "ru",
-            }
-            async with session.get(WEATHER_URL, params=params) as response:
-                data = await response.json()
-                if response.status == 200:
-                    weather = data["weather"][0]["description"]
-                    temp = data["main"]["temp"]
-                    feels_like = data["main"]["feels_like"]
-                    humidity = data["main"]["humidity"]
-                    wind = data["wind"]["speed"]
-                    return (
-                        f"🌤 Погода в {city}:\n"
-                        f"• Температура: {temp}°C (ощущается как {feels_like}°C)\n"
-                        f"• Состояние: {weather}\n"
-                        f"• Влажность: {humidity}%\n"
-                        f"• Ветер: {wind} м/с"
-                    )
-                else:
-                    return "Не удалось получить данные о погоде"
-    except Exception as e:
-        logging.error(f"Ошибка при получении погоды: {e}")
-        return "Произошла ошибка при запросе погоды"
-
-
-# Функция для расчета расстояния
-def calculate_distance(lat1, lon1, lat2, lon2):
-    from math import radians, sin, cos, sqrt, atan2
-
-    R = 6373.0
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    return R * (2 * atan2(sqrt(a), sqrt(1 - a)))
-
-
-# Обработчик команды /start
+# ========== ОБРАБОТЧИКИ СООБЩЕНИЙ ==========
 @dp.message(Command("start"))
 async def start(message: types.Message):
     welcome_text = """
@@ -314,8 +265,6 @@ async def start(message: types.Message):
         reply_markup=keyboard,
     )
 
-
-# Обработчик текстовых сообщений
 @dp.message(F.text)
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
@@ -351,7 +300,6 @@ async def handle_message(message: types.Message):
     elif text == "❓ Узнать ответ":
         if user_id in user_riddles:
             riddle, answer = user_riddles[user_id]
-            # Проверяем, является ли загадка про реку
             if "река" in riddle.lower():
                 response = "Правильные ответы:\n1. Великая\n2. Пскова"
             else:
@@ -363,7 +311,6 @@ async def handle_message(message: types.Message):
 
     elif user_id in user_riddles:
         riddle, answer = user_riddles[user_id]
-        # Для загадки про реку принимаем оба варианта
         if "река" in riddle.lower():
             if text.lower() in ["великая", "пскова"]:
                 await message.answer("✅ Правильно!", reply_markup=keyboard)
@@ -383,8 +330,6 @@ async def handle_message(message: types.Message):
                     reply_markup=answer_keyboard,
                 )
 
-
-# Обработчик геолокации
 @dp.message(F.content_type == "location")
 async def handle_location(message: types.Message):
     lat = message.location.latitude
@@ -400,8 +345,6 @@ async def handle_location(message: types.Message):
 
     await message.answer(response, reply_markup=keyboard)
 
-
-# Обработчик callback-запросов
 @dp.callback_query()
 async def handle_callback(callback: types.CallbackQuery):
     data = callback.data
@@ -446,41 +389,63 @@ async def handle_callback(callback: types.CallbackQuery):
 
     await callback.answer()
 
+# ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+async def get_weather(city: str = "Псков"):
+    try:
+        async with aiohttp.ClientSession() as session:
+            params = {
+                "q": city,
+                "appid": WEATHER_API_KEY,
+                "units": "metric",
+                "lang": "ru",
+            }
+            async with session.get(WEATHER_URL, params=params) as response:
+                data = await response.json()
+                if response.status == 200:
+                    weather = data["weather"][0]["description"]
+                    temp = data["main"]["temp"]
+                    feels_like = data["main"]["feels_like"]
+                    humidity = data["main"]["humidity"]
+                    wind = data["wind"]["speed"]
+                    return (
+                        f"🌤 Погода в {city}:\n"
+                        f"• Температура: {temp}°C (ощущается как {feels_like}°C)\n"
+                        f"• Состояние: {weather}\n"
+                        f"• Влажность: {humidity}%\n"
+                        f"• Ветер: {wind} м/с"
+                    )
+                else:
+                    return "Не удалось получить данные о погоде"
+    except Exception as e:
+        logging.error(f"Ошибка при получении погоды: {e}")
+        return "Произошла ошибка при запросе погоды"
 
+def calculate_distance(lat1, lon1, lat2, lon2):
+    R = 6373.0
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+    return R * (2 * atan2(sqrt(a), sqrt(1 - a)))
+
+# ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
 async def start_bot():
-    global bot, dp
-    bot = Bot(token=TOKEN)
-    dp = Dispatcher()
-    
-    # Регистрация обработчиков
-    dp.message.register(start, Command("start"))
-    dp.message.register(handle_message, F.text)
-    dp.message.register(handle_location, F.content_type == "location")
-    dp.callback_query.register(handle_callback)
-    
     await dp.start_polling(bot)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Запускаем бота при старте приложения
+    # Запускаем бота в фоне
     asyncio.create_task(start_bot())
     yield
-    # Останавливаем бота при завершении
-    if bot:
-        await bot.session.close()
+    # При завершении закрываем сессию бота
+    await bot.session.close()
 
-
-# Инициализация FastAPI
 app = FastAPI(lifespan=lifespan)
-
 
 @app.get("/")
 async def root():
     return {"message": "Bot is running"}
 
-
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
