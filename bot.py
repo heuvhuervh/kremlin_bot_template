@@ -1,5 +1,13 @@
 from fastapi import FastAPI
+
+# Инициализация FastAPI
 app = FastAPI()
+
+@app.get("/")
+async def root():
+    return {"message": "Bot is running"}
+
+from fastapi import FastAPI
 import logging
 import asyncio
 import random
@@ -407,10 +415,15 @@ async def handle_callback(callback: types.CallbackQuery):
 
     await callback.answer()
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
-@app.get("/")
-async def root():
-    return {"message": "Bot is running"}
+
+
+
+
+
+
+
+
+
+
+
 
