@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
+PORT = int(os.environ.get("PORT", 10000))  # Важно для Render
 
 # Инициализация бота и диспетчера
 bot = Bot(token=TOKEN)
@@ -452,6 +453,10 @@ async def root():
 async def health_check():
     return {"status": "OK"}
 
+@app.get("/ping")
+async def ping():
+    return {"status": "alive"}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
