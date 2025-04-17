@@ -3,7 +3,7 @@ import logging
 import asyncio
 import random
 import aiohttp
-from aiogram import Bot, Dispatcher, types, F, executor
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import (
     ReplyKeyboardMarkup,
@@ -437,7 +437,7 @@ async def on_shutdown(dp):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Запускаем бота в фоне
-    asyncio.create_task(executor.start_polling(dp, on_shutdown=on_shutdown))
+    asyncio.create_task(dp.start_polling(bot))
     yield
     # При завершении закрываем сессию бота
     await bot.session.close()
