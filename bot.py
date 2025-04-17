@@ -406,38 +406,38 @@ async def handle_callback(callback: types.CallbackQuery):
 
     await callback.answer()
 
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"{os.getenv('https://kremlin-bot-template.onrender.com')}{WEBHOOK_PATH}"  # пример: https://my-bot.onrender.com/webhook
 
+
+# === FastAPI + Webhook ===
+from fastapi import Request
+
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
+WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
+
+app = FastAPI()
+
+@app.on_event("startup")
 async def on_startup():
     await bot.set_webhook(WEBHOOK_URL)
+    print("✅ Webhook установлен:", WEBHOOK_URL)
 
+@app.on_event("shutdown")
 async def on_shutdown():
     await bot.delete_webhook()
     await bot.session.close()
 
-app = FastAPI()
+@app.get("/")
+async def root():
+    return {"message": "Bot is running"}
 
 @app.post(WEBHOOK_PATH)
-async def webhook_handler(request: types.Update):
-    update = types.Update.model_validate(await request.json())
+async def telegram_webhook(request: Request):
+    data = await request.json()
+    update = types.Update.model_validate(data)
     await dp.feed_update(bot, update)
-    return {"status": "ok"}
-
-@app.get("/")
-def root():
-    return {"message": "Bot is running!"}
+    return {"ok": True}
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
-
-
-
-
-
-
-
-
-
-
