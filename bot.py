@@ -417,15 +417,20 @@ WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
 
 app = FastAPI()
 
-@app.on_event("startup")
-async def on_startup():
-    await bot.set_webhook(WEBHOOK_URL)
-    print("✅ Webhook установлен:", WEBHOOK_URL)
+from fastapi import Lifespan
 
-@app.on_event("shutdown")
-async def on_shutdown():
+async def lifespan(app: FastAPI):
+    # Startup logic
+    await bot.set_webhook(WEBHOOK_URL)
+    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
+
+    yield  # Application runtime
+
+    # Shutdown logic
     await bot.delete_webhook()
     await bot.session.close()
+
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def root():
