@@ -408,41 +408,13 @@ async def handle_callback(callback: types.CallbackQuery):
 
 
 
-# === FastAPI + Webhook ===
-from fastapi import Request
 
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
-WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
 
-app = FastAPI()
 
-from fastapi import Lifespan
 
-async def lifespan(app: FastAPI):
-    # Startup logic
-    await bot.set_webhook(WEBHOOK_URL)
-    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
 
-    yield  # Application runtime
 
-    # Shutdown logic
-    await bot.delete_webhook()
-    await bot.session.close()
 
-app = FastAPI(lifespan=lifespan)
 
-@app.get("/")
-async def root():
-    return {"message": "Bot is running"}
 
-@app.post(WEBHOOK_PATH)
-async def telegram_webhook(request: Request):
-    data = await request.json()
-    update = types.Update.model_validate(data)
-    await dp.feed_update(bot, update)
-    return {"ok": True}
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
