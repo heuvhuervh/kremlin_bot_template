@@ -1,15 +1,4 @@
 from fastapi import FastAPI
-
-# Инициализация FastAPI
-app = FastAPI()
-
-
-@app.get("/")
-async def root():
-    return {"message": "Bot is running"}
-
-
-from fastapi import FastAPI
 import logging
 import asyncio
 import random
@@ -22,8 +11,8 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
-
 import os
+from contextlib import asynccontextmanager
 
 TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
@@ -31,8 +20,9 @@ WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+# Глобальные переменные для бота
+bot = None
+dp = None
 
 # Основная клавиатура
 keyboard = ReplyKeyboardMarkup(
@@ -56,7 +46,7 @@ answer_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-# Клавиатура "О Кремле" (убрана кнопка "Интересные места")
+# Клавиатура "О Кремле"
 kremlin_inline_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="📜 История", callback_data="history")],
@@ -90,7 +80,7 @@ history_keyboard = InlineKeyboardMarkup(
     ]
 )
 
-# Вся информация о Кремле (полностью сохранена, включая раздел places)
+# Вся информация о Кремле
 kremlin_info = {
     "history": "📜 Выберите интересующий раздел истории Псковского Кремля:",
     "history_dovmont": """🏰 Довмонтов город - музей под открытым небом
@@ -194,7 +184,7 @@ kremlin_info = {
     "map": "🗺 Схема Псковского Кремля",
 }
 
-# Все фото (полностью сохранены)
+# Все фото
 photo_urls = [
     "https://wikiway.com/upload/hl-photo/2ab/747/pskovskiy_kreml_29.jpg",
     "https://wikiway.com/upload/hl-photo/f18/15b/pskovskiy_kreml_26.jpg",
@@ -214,7 +204,7 @@ photo_urls = [
     "https://sun9-46.userapi.com/impg/pf2xWQJW0y6kkNUIH662MeddoVBfXyWP5iASAA/kpgzJopajJY.jpg?size=902x1032&quality=95&sign=e3c7e25350df964a21b9ab4319909230&type=album",
 ]
 
-# Исторические фото (полностью сохранены)
+# Исторические фото
 historical_photo_urls = [
     "https://sun9-6.userapi.com/impg/B8l5F5IPWR_KD7dev8uKCByIeujxLOSVW2YNWA/tnPqvpcgwTw.jpg?size=1600x1058&quality=95&sign=9d5d1483cd561dd86107922135fb7b88&type=album",
     "https://sun9-5.userapi.com/impg/X_csfph-aGP7OJy_aCl5DTivCULXU7C_3vE1cA/LX6tAQEu49c.jpg?size=1287x970&quality=95&sign=1972d6031fab6a31f5f67642d3c06bbf&type=album",
@@ -229,7 +219,7 @@ historical_photo_urls = [
     "https://sun9-27.userapi.com/impg/4OIeZlW1pqp4fPWX7lqNBEIjhQv8JbzC4Z-RsA/MiOaROICN0A.jpg?size=1476x1008&quality=95&sign=d962477ca1e9d72921bb4f631c649395&type=album",
 ]
 
-# Загадки (полностью сохранены)
+# Загадки
 riddles_list = [
     ("Какая река протекает рядом с Псковским Кремлем?", "великая"),
     ("Какая река протекает рядом с Псковским Кремлем?", "пскова"),
@@ -455,6 +445,39 @@ async def handle_callback(callback: types.CallbackQuery):
         await callback.answer()
 
     await callback.answer()
+
+
+async def start_bot():
+    global bot, dp
+    bot = Bot(token=TOKEN)
+    dp = Dispatcher()
+    
+    # Регистрация обработчиков
+    dp.message.register(start, Command("start"))
+    dp.message.register(handle_message, F.text)
+    dp.message.register(handle_location, F.content_type == "location")
+    dp.callback_query.register(handle_callback)
+    
+    await dp.start_polling(bot)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Запускаем бота при старте приложения
+    asyncio.create_task(start_bot())
+    yield
+    # Останавливаем бота при завершении
+    if bot:
+        await bot.session.close()
+
+
+# Инициализация FastAPI
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/")
+async def root():
+    return {"message": "Bot is running"}
 
 
 if __name__ == "__main__":
