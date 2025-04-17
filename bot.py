@@ -415,6 +415,11 @@ async def handle_callback(callback: types.CallbackQuery):
 
     await callback.answer()
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
+
 
 
 
