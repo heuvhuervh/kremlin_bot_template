@@ -406,20 +406,31 @@ async def handle_callback(callback: types.CallbackQuery):
 
     await callback.answer()
 
-async def main():
-    await dp.start_polling(bot)
-    from fastapi import FastAPI
-import uvicorn
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = f"{os.getenv('https://kremlin-bot-template.onrender.com')}{WEBHOOK_PATH}"  # пример: https://my-bot.onrender.com/webhook
+
+async def on_startup():
+    await bot.set_webhook(WEBHOOK_URL)
+
+async def on_shutdown():
+    await bot.delete_webhook()
+    await bot.session.close()
 
 app = FastAPI()
+
+@app.post(WEBHOOK_PATH)
+async def webhook_handler(request: types.Update):
+    update = types.Update.model_validate(await request.json())
+    await dp.feed_update(bot, update)
+    return {"status": "ok"}
 
 @app.get("/")
 def root():
     return {"message": "Bot is running!"}
+
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.create_task(main())  # запускаем aiogram бота
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 4000)))
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
 
 
