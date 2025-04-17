@@ -3,7 +3,7 @@ import logging
 import asyncio
 import random
 import aiohttp
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, types, F, executor
 from aiogram.filters import Command
 from aiogram.types import (
     ReplyKeyboardMarkup,
@@ -12,11 +12,9 @@ from aiogram.types import (
     InlineKeyboardButton,
 )
 import os
+import signal
 from contextlib import asynccontextmanager
-from math import radians, sin, cos, sqrt, atan2  # Добавлен импорт математических функций
-
-# Инициализация FastAPI
-app = FastAPI()
+from math import radians, sin, cos, sqrt, atan2
 
 # Настройка логгирования
 logging.basicConfig(level=logging.INFO)
@@ -53,7 +51,7 @@ answer_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True,
 )
 
-# Клавиатура "О Кремле" (убрана кнопка "Интересные места")
+# Клавиатура "О Кремле"
 kremlin_inline_keyboard = InlineKeyboardMarkup(
     inline_keyboard=[
         [InlineKeyboardButton(text="📜 История", callback_data="history")],
@@ -75,7 +73,7 @@ history_keyboard = InlineKeyboardMarkup(
     ]
 )
 
-# Вся информация о Кремле (полностью сохранена, включая раздел places)
+# Вся информация о Кремле
 kremlin_info = {
     "history": "📜 Выберите интересующий раздел истории Псковского Кремля:",
     "history_dovmont": """🏰 Довмонтов город - музей под открытым небом
@@ -428,14 +426,18 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     return R * (2 * atan2(sqrt(a), sqrt(1 - a)))
 
-# ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
-async def start_bot():
-    await dp.start_polling(bot)
+# ========== ОБРАБОТКА ЗАВЕРШЕНИЯ РАБОТЫ ==========
+async def on_shutdown(dp):
+    logging.warning("Получен сигнал завершения работы...")
+    await bot.close()
+    await dp.storage.close()
+    logging.warning("Бот остановлен")
 
+# ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Запускаем бота в фоне
-    asyncio.create_task(start_bot())
+    asyncio.create_task(executor.start_polling(dp, on_shutdown=on_shutdown))
     yield
     # При завершении закрываем сессию бота
     await bot.session.close()
@@ -445,6 +447,10 @@ app = FastAPI(lifespan=lifespan)
 @app.get("/")
 async def root():
     return {"message": "Bot is running"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "OK"}
 
 if __name__ == "__main__":
     import uvicorn
