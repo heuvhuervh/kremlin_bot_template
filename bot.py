@@ -438,10 +438,31 @@ async def on_shutdown(dp):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Запускаем бота в фоне
-    asyncio.create_task(dp.start_polling(bot))
+    polling_task = asyncio.create_task(dp.start_polling(bot))
+    
+    # Обработка сигналов завершения
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(
+            sig, 
+            lambda: asyncio.create_task(shutdown_signal_handler(polling_task))
+        )
+    
     yield
+    
     # При завершении закрываем сессию бота
+    await shutdown_signal_handler(polling_task)
+
+async def shutdown_signal_handler(polling_task):
+    logging.warning("Получен сигнал завершения работы...")
+    polling_task.cancel()
+    try:
+        await polling_task
+    except asyncio.CancelledError:
+        pass
+    await dp.stop_polling()
     await bot.session.close()
+    logging.warning("Бот остановлен")
 
 app = FastAPI(lifespan=lifespan)
 
