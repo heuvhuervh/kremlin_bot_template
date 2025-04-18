@@ -448,11 +448,14 @@ async def run_bot():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    from concurrent.futures import ThreadPoolExecutor
+    import threading
     
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        # Запускаем FastAPI в одном потоке
-        executor.submit(uvicorn.run, app, host="0.0.0.0", port=PORT)
-        
-        # Запускаем бота в другом потоке
-        executor.submit(asyncio.run, run_bot())
+    # Запускаем FastAPI в отдельном потоке
+    threading.Thread(
+        target=uvicorn.run,
+        kwargs={"app": app, "host": "0.0.0.0", "port": PORT},
+        daemon=True
+    ).start()
+    
+    # Запускаем бота в основном потоке
+    asyncio.run(run_bot())
