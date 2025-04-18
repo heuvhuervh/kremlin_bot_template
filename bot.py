@@ -15,6 +15,9 @@ import os
 import signal
 from contextlib import asynccontextmanager
 from math import radians, sin, cos, sqrt, atan2
+from threading import Thread
+from flask import Flask
+import multiprocessing
 
 # Настройка логгирования
 logging.basicConfig(level=logging.INFO)
@@ -24,11 +27,31 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
-PORT = int(os.environ.get("PORT", 10000))  # Важно для Render
+PORT = int(os.environ.get("PORT", 8000))  # Порт для FastAPI
+FLASK_PORT = 5000  # Порт для Flask
 
 # Инициализация бота и диспетчера
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
+
+# ========== Flask сервер для поддержания активности ==========
+def run_flask():
+    flask_app = Flask(__name__)
+
+    @flask_app.route('/')
+    def home():
+        return "PskovKremlinBot is alive!"
+
+    @flask_app.route('/ping')
+    def ping():
+        return "pong"
+
+    flask_app.run(host='0.0.0.0', port=FLASK_PORT)
+
+# Запускаем Flask в отдельном процессе
+flask_process = multiprocessing.Process(target=run_flask)
+flask_process.daemon = True
+flask_process.start()
 
 # Основная клавиатура
 keyboard = ReplyKeyboardMarkup(
@@ -129,7 +152,7 @@ kremlin_info = {
 
 Собор построен в Псковском кремле в 1836 году для совершения богослужений в зимнее время - в период с 17 октября по шестую неделю после Пасхи. На строительство из казны было отпущено 180 000 рублей ассигнациями.
 
-В 1888 году собор был отделан снаружи на средства бывшего церковного старосты, псковского купца Ивана Чернова. В 1890 году на собственные средства собор отделан внутри, на средства купца Ивана Чернова устроены хоры. На средства Псковского купеческого общества в 1898 году устроен балдахин над мощами святого князя Гавриила. По указу Святейшего Синода от 21 июня 1898 года мощи святого князя ежегодно с 15 октября по 23 апреля переносились из Троицкого собора в Благовещенский.
+В 1888 году собор был отделан снаружи на средства бывшего церковного старосты, псковского купца Ивана Чернова. В 1890 году на собственные средства собор отделан внутри, на средства купца Ивана Чернова устроены хоры. На средства Псковского купеческого общества в 1898 году устроен балдахин над мощами святого князя Гавриила. По указу Святейшего Синода от 21 июня 1898 года мощи святого князя ежегодно с 15 октября по 23 апреля переносились из Троицкого собор в Благовещенский.
 
 В 1920 - 1922 годах Благовещенский собор также как и Троицкий был передан обновленцам.
 
@@ -178,7 +201,7 @@ kremlin_info = {
     "map": "🗺 Схема Псковского Кремля",
 }
 
-# Все фото (полностью сохранены)
+# Все фото
 photo_urls = [
     "https://wikiway.com/upload/hl-photo/2ab/747/pskovskiy_kreml_29.jpg",
     "https://wikiway.com/upload/hl-photo/f18/15b/pskovskiy_kreml_26.jpg",
@@ -192,9 +215,13 @@ photo_urls = [
     "https://sun9-44.userapi.com/impg/0X-6kobOBrTnJs2Bbokd32_wPRZTgXbpCRb7sg/eW2AQNhXvVY.jpg?size=1920x2140&quality=95&sign=294007fe1b9827b841e66b2d730da1ce&type=album",
     "https://avatars.mds.yandex.net/get-altay/13455884/2a000001913b3e4233c3e528cd6cc5f86366/XXXL",
     "https://sun9-24.userapi.com/impg/Ear4HHf51_Ixonzyi2BoTA1A0f-QtiWpVqVaxg/IZ2jyRJI86M.jpg?size=1620x2160&quality=95&sign=e0c6f0c123b6af5d453a51ce5c2c1ba1&type=album",
+    "https://sun9-9.userapi.com/impg/3XOSUBln5k6SXn0NkLxgHqEsRSsOVERpjuAPJQ/4YkXGBf9Hh8.jpg?size=2560x1440&quality=95&sign=9aa48f922e0fb1874308a9ea868747c6&type=album",
+    "https://sun9-73.userapi.com/impg/ItpibdRqp8_Vthp5HNdGLIIS605iq0uB5khL7g/xqyspaGCo2M.jpg?size=1080x938&quality=95&sign=73cbe436199f2a57724e492f0ac33aaa&type=album",
+    "https://sun9-32.userapi.com/impg/oU5q-zY62kDwiQuR7E8tCUrGwMTsIb_TYwBDVA/7DdtP9aDPMw.jpg?size=1200x1600&quality=95&sign=ceb06d0c0e5505f7c35ee62eac79eb9f&type=album",
+    "https://sun9-46.userapi.com/impg/pf2xWQJW0y6kkNUIH662MeddoVBfXyWP5iASAA/kpgzJopajJY.jpg?size=902x1032&quality=95&sign=e3c7e25350df964a21b9ab4319909230&type=album",
 ]
 
-# Исторические фото (полностью сохранены)
+# Исторические фото
 historical_photo_urls = [
     "https://sun9-6.userapi.com/impg/B8l5F5IPWR_KD7dev8uKCByIeujxLOSVW2YNWA/tnPqvpcgwTw.jpg?size=1600x1058&quality=95&sign=9d5d1483cd561dd86107922135fb7b88&type=album",
     "https://sun9-5.userapi.com/impg/X_csfph-aGP7OJy_aCl5DTivCULXU7C_3vE1cA/LX6tAQEu49c.jpg?size=1287x970&quality=95&sign=1972d6031fab6a31f5f67642d3c06bbf&type=album",
@@ -209,7 +236,7 @@ historical_photo_urls = [
     "https://sun9-27.userapi.com/impg/4OIeZlW1pqp4fPWX7lqNBEIjhQv8JbzC4Z-RsA/MiOaROICN0A.jpg?size=1476x1008&quality=95&sign=d962477ca1e9d72921bb4f631c649395&type=album",
 ]
 
-# Загадки (полностью сохранены)
+# Загадки
 riddles_list = [
     ("Какая река протекает рядом с Псковским Кремлем?", "великая"),
     ("Какая река протекает рядом с Псковским Кремлем?", "пскова"),
@@ -231,7 +258,6 @@ KREMLIN_LAT = 57.8222
 KREMLIN_LON = 28.3281
 
 # ========== ОБРАБОТЧИКИ СООБЩЕНИЙ ==========
-
 @dp.message(Command("start"))
 async def start(message: types.Message):
     welcome_text = """
@@ -362,11 +388,11 @@ async def handle_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(
             kremlin_info[data],
             reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[ 
+                inline_keyboard=[
                     [
                         InlineKeyboardButton(
                             text="🔙 Назад",
-                            callback_data=( 
+                            callback_data=(
                                 "history"
                                 if data.startswith("history_")
                                 else "back_to_main"
@@ -386,7 +412,6 @@ async def handle_callback(callback: types.CallbackQuery):
     await callback.answer()
 
 # ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
-
 async def get_weather(city: str = "Псков"):
     try:
         async with aiohttp.ClientSession() as session:
@@ -425,46 +450,8 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
     return R * (2 * atan2(sqrt(a), sqrt(1 - a)))
 
-# ========== ОБРАБОТКА ЗАВЕРШЕНИЯ РАБОТЫ ==========
-
-async def on_shutdown(dp):
-    logging.warning("Получен сигнал завершения работы...")
-    await bot.close()
-    await dp.storage.close()
-    logging.warning("Бот остановлен")
-
 # ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Запускаем бота в фоне
-    polling_task = asyncio.create_task(dp.start_polling(bot))
-    
-    # Обработка сигналов завершения
-    loop = asyncio.get_running_loop()
-    for sig in (signal.SIGTERM, signal.SIGINT):
-        loop.add_signal_handler(
-            sig, 
-            lambda: asyncio.create_task(shutdown_signal_handler(polling_task))
-        )
-    
-    yield
-    
-    # При завершении закрываем сессию бота
-    await shutdown_signal_handler(polling_task)
-
-async def shutdown_signal_handler(polling_task):
-    logging.warning("Получен сигнал завершения работы...")
-    polling_task.cancel()
-    try:
-        await polling_task
-    except asyncio.CancelledError:
-        pass
-    await dp.stop_polling()
-    await bot.session.close()
-    logging.warning("Бот остановлен")
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 @app.get("/")
 async def root():
@@ -478,6 +465,19 @@ async def health_check():
 async def ping():
     return {"status": "alive"}
 
+async def main():
+    await dp.start_polling(bot)
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=PORT)
+    from multiprocessing import Process
+    
+    # Запускаем FastAPI в отдельном процессе
+    fastapi_process = Process(target=uvicorn.run,
+                            args=(app,),
+                            kwargs={"host": "0.0.0.0", "port": PORT})
+    fastapi_process.daemon = True
+    fastapi_process.start()
+    
+    # Запускаем бота
+    asyncio.run(main())
