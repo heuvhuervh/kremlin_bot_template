@@ -192,10 +192,6 @@ photo_urls = [
     "https://sun9-44.userapi.com/impg/0X-6kobOBrTnJs2Bbokd32_wPRZTgXbpCRb7sg/eW2AQNhXvVY.jpg?size=1920x2140&quality=95&sign=294007fe1b9827b841e66b2d730da1ce&type=album",
     "https://avatars.mds.yandex.net/get-altay/13455884/2a000001913b3e4233c3e528cd6cc5f86366/XXXL",
     "https://sun9-24.userapi.com/impg/Ear4HHf51_Ixonzyi2BoTA1A0f-QtiWpVqVaxg/IZ2jyRJI86M.jpg?size=1620x2160&quality=95&sign=e0c6f0c123b6af5d453a51ce5c2c1ba1&type=album",
-    "https://sun9-9.userapi.com/impg/3XOSUBln5k6SXn0NkLxgHqEsRSsOVERpjuAPJQ/4YkXGBf9Hh8.jpg?size=2560x1440&quality=95&sign=9aa48f922e0fb1874308a9ea868747c6&type=album",
-    "https://sun9-73.userapi.com/impg/ItpibdRqp8_Vthp5HNdGLIIS605iq0uB5khL7g/xqyspaGCo2M.jpg?size=1080x938&quality=95&sign=73cbe436199f2a57724e492f0ac33aaa&type=album",
-    "https://sun9-32.userapi.com/impg/oU5q-zY62kDwiQuR7E8tCUrGwMTsIb_TYwBDVA/7DdtP9aDPMw.jpg?size=1200x1600&quality=95&sign=ceb06d0c0e5505f7c35ee62eac79eb9f&type=album",
-    "https://sun9-46.userapi.com/impg/pf2xWQJW0y6kkNUIH662MeddoVBfXyWP5iASAA/kpgzJopajJY.jpg?size=902x1032&quality=95&sign=e3c7e25350df964a21b9ab4319909230&type=album",
 ]
 
 # Исторические фото (полностью сохранены)
@@ -235,6 +231,7 @@ KREMLIN_LAT = 57.8222
 KREMLIN_LON = 28.3281
 
 # ========== ОБРАБОТЧИКИ СООБЩЕНИЙ ==========
+
 @dp.message(Command("start"))
 async def start(message: types.Message):
     welcome_text = """
@@ -365,11 +362,11 @@ async def handle_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(
             kremlin_info[data],
             reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
+                inline_keyboard=[ 
                     [
                         InlineKeyboardButton(
                             text="🔙 Назад",
-                            callback_data=(
+                            callback_data=( 
                                 "history"
                                 if data.startswith("history_")
                                 else "back_to_main"
@@ -389,6 +386,7 @@ async def handle_callback(callback: types.CallbackQuery):
     await callback.answer()
 
 # ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
+
 async def get_weather(city: str = "Псков"):
     try:
         async with aiohttp.ClientSession() as session:
@@ -428,6 +426,7 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return R * (2 * atan2(sqrt(a), sqrt(1 - a)))
 
 # ========== ОБРАБОТКА ЗАВЕРШЕНИЯ РАБОТЫ ==========
+
 async def on_shutdown(dp):
     logging.warning("Получен сигнал завершения работы...")
     await bot.close()
@@ -435,6 +434,7 @@ async def on_shutdown(dp):
     logging.warning("Бот остановлен")
 
 # ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Запускаем бота в фоне
