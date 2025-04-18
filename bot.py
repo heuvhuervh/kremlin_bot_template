@@ -15,9 +15,7 @@ import os
 import signal
 from contextlib import asynccontextmanager
 from math import radians, sin, cos, sqrt, atan2
-from threading import Thread
-from flask import Flask
-import multiprocessing
+import uvicorn
 
 # Настройка логгирования
 logging.basicConfig(level=logging.INFO)
@@ -28,30 +26,25 @@ TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
 PORT = int(os.environ.get("PORT", 8000))  # Порт для FastAPI
-FLASK_PORT = 5000  # Порт для Flask
 
 # Инициализация бота и диспетчера
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# ========== Flask сервер для поддержания активности ==========
-def run_flask():
-    flask_app = Flask(__name__)
+# FastAPI приложение
+app = FastAPI()
 
-    @flask_app.route('/')
-    def home():
-        return "PskovKremlinBot is alive!"
+@app.get("/")
+async def root():
+    return {"message": "PskovKremlinBot is running"}
 
-    @flask_app.route('/ping')
-    def ping():
-        return "pong"
+@app.get("/health")
+async def health_check():
+    return {"status": "OK"}
 
-    flask_app.run(host='0.0.0.0', port=FLASK_PORT)
-
-# Запускаем Flask в отдельном процессе
-flask_process = multiprocessing.Process(target=run_flask)
-flask_process.daemon = True
-flask_process.start()
+@app.get("/ping")
+async def ping():
+    return {"status": "alive"}
 
 # Основная клавиатура
 keyboard = ReplyKeyboardMarkup(
@@ -451,33 +444,15 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return R * (2 * atan2(sqrt(a), sqrt(1 - a)))
 
 # ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
-app = FastAPI()
-
-@app.get("/")
-async def root():
-    return {"message": "Bot is running"}
-
-@app.get("/health")
-async def health_check():
-    return {"status": "OK"}
-
-@app.get("/ping")
-async def ping():
-    return {"status": "alive"}
-
-async def main():
+async def run_bot():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    import uvicorn
-    from multiprocessing import Process
+    from concurrent.futures import ThreadPoolExecutor
     
-    # Запускаем FastAPI в отдельном процессе
-    fastapi_process = Process(target=uvicorn.run,
-                            args=(app,),
-                            kwargs={"host": "0.0.0.0", "port": PORT})
-    fastapi_process.daemon = True
-    fastapi_process.start()
-    
-    # Запускаем бота
-    asyncio.run(main())
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        # Запускаем FastAPI в одном потоке
+        executor.submit(uvicorn.run, app, host="0.0.0.0", port=PORT)
+        
+        # Запускаем бота в другом потоке
+        executor.submit(asyncio.run, run_bot())
