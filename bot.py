@@ -23,6 +23,8 @@ logger = logging.getLogger(__name__)
 
 # Получение переменных окружения
 TOKEN = os.getenv("BOT_TOKEN")
+if not TOKEN:
+    raise ValueError("❌ BOT_TOKEN не установлен! Проверь переменные окружения.")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 WEBHOOK_PATH = f"/webhook/{TOKEN}"
