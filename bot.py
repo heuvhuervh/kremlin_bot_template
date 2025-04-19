@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 import logging
 import asyncio
 import random
@@ -10,12 +10,12 @@ from aiogram.types import (
     KeyboardButton,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+    WebAppInfo
 )
 import os
-import signal
-from contextlib import asynccontextmanager
 from math import radians, sin, cos, sqrt, atan2
 import uvicorn
+from fastapi.responses import JSONResponse
 
 # Настройка логгирования
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 # Получение переменных окружения
 TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+WEBHOOK_PATH = f"/webhook/{TOKEN}"
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
 PORT = int(os.environ.get("PORT", 8000))  # Порт для FastAPI
 
@@ -33,6 +35,23 @@ dp = Dispatcher()
 
 # FastAPI приложение
 app = FastAPI()
+
+@app.on_event("startup")
+async def on_startup():
+    if WEBHOOK_URL:
+        await bot.set_webhook(
+            url=WEBHOOK_URL + WEBHOOK_PATH,
+            drop_pending_updates=True
+        )
+    else:
+        await bot.delete_webhook()
+        asyncio.create_task(dp.start_polling(bot))
+
+@app.post(WEBHOOK_PATH)
+async def bot_webhook(update: dict):
+    telegram_update = types.Update(**update)
+    await dp.feed_update(bot=bot, update=telegram_update)
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 @app.get("/")
 async def root():
@@ -444,18 +463,8 @@ def calculate_distance(lat1, lon1, lat2, lon2):
     return R * (2 * atan2(sqrt(a), sqrt(1 - a)))
 
 # ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
-async def run_bot():
-    await dp.start_polling(bot)
-
 if __name__ == "__main__":
-    import threading
-    
-    # Запускаем FastAPI в отдельном потоке
-    threading.Thread(
-        target=uvicorn.run,
-        kwargs={"app": app, "host": "0.0.0.0", "port": PORT},
-        daemon=True
-    ).start()
-    
-    # Запускаем бота в основном потоке
-    asyncio.run(run_bot())
+    if WEBHOOK_URL:
+        uvicorn.run(app, host="0.0.0.0", port=PORT)
+    else:
+        asyncio.run(dp.start_polling(bot))
