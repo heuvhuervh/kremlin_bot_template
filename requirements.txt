@@ -1,5 +1,6 @@
-﻿aiogram==3.0.0b7
-fastapi==0.95.2
-aiohttp==3.8.5 --only-binary :all:
-multidict==6.0.4 --only-binary :all:
-yarl==1.9.2 --only-binary :all:
+﻿aiogram==3.1.1  # вместо 3.0.0b7
+fastapi==0.109.2  # вместо 0.95.2
+aiohttp==3.9.3  # вместо 3.8.5
+multidict==6.0.5  # вместо 6.0.4
+yarl==1.9.4  # вместо 1.9.2
+uvicorn==0.27.1  # для работы FastAPI
