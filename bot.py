@@ -1,71 +1,24 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 import logging
 import asyncio
 import random
 import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import (
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    WebAppInfo
-)
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+
 import os
-from math import radians, sin, cos, sqrt, atan2
-import uvicorn
-from fastapi.responses import JSONResponse
 
-# Настройка логгирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Получение переменных окружения
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("❌ BOT_TOKEN не установлен! Проверь переменные окружения.")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-WEBHOOK_PATH = f"/webhook/{TOKEN}"
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
-PORT = int(os.environ.get("PORT", 8000))  # Порт для FastAPI
 
-# Инициализация бота и диспетчера
+logging.basicConfig(level=logging.INFO)
+
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
-
-# FastAPI приложение
-app = FastAPI()
-
-@app.on_event("startup")
-async def on_startup():
-    if WEBHOOK_URL:
-        await bot.set_webhook(
-            url=WEBHOOK_URL + WEBHOOK_PATH,
-            drop_pending_updates=True
-        )
-    else:
-        await bot.delete_webhook()
-        asyncio.create_task(dp.start_polling(bot))
-
-@app.post(WEBHOOK_PATH)
-async def bot_webhook(update: dict):
-    telegram_update = types.Update(**update)
-    await dp.feed_update(bot=bot, update=telegram_update)
-    return JSONResponse(status_code=200, content={"status": "ok"})
-
-@app.get("/")
-async def root():
-    return {"message": "PskovKremlinBot is running"}
-
-@app.get("/health")
-async def health_check():
-    return {"status": "OK"}
-
-@app.get("/ping")
-async def ping():
-    return {"status": "alive"}
 
 # Основная клавиатура
 keyboard = ReplyKeyboardMarkup(
@@ -75,45 +28,42 @@ keyboard = ReplyKeyboardMarkup(
         [KeyboardButton(text="❓ Загадка")],
         [KeyboardButton(text="🌤 Погода")],
         [KeyboardButton(text="📍 Отправить местоположение", request_location=True)],
-        [KeyboardButton(text="🔄 Перезапуск")],
+        [KeyboardButton(text="🔄 Перезапуск")]
     ],
-    resize_keyboard=True,
+    resize_keyboard=True
 )
 
 # Клавиатура для кнопки "Узнать ответ"
 answer_keyboard = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="❓ Узнать ответ")],
-        [KeyboardButton(text="🔄 Перезапуск")],
+        [KeyboardButton(text="🔄 Перезапуск")]
     ],
-    resize_keyboard=True,
+    resize_keyboard=True
 )
 
-# Клавиатура "О Кремле"
-kremlin_inline_keyboard = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="📜 История", callback_data="history")],
-        [InlineKeyboardButton(text="🗺 Схема Кремля", callback_data="map")],
-        [InlineKeyboardButton(text="📸 Исторические фото", callback_data="historical_photos")],
-    ]
-)
+# Клавиатура "О Кремле" (убрана кнопка "Интересные места")
+kremlin_inline_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="📜 История", callback_data="history")],
+    [InlineKeyboardButton(text="🗺 Схема Кремля", callback_data="map")],
+    [InlineKeyboardButton(text="📸 Исторические фото", callback_data="historical_photos")]
+])
 
 # Клавиатура истории
-history_keyboard = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [InlineKeyboardButton(text="Довмонтов город", callback_data="history_dovmont")],
-        [InlineKeyboardButton(text="Перси", callback_data="history_persi")],
-        [InlineKeyboardButton(text="Вечевая площадь", callback_data="history_vechevaya")],
-        [InlineKeyboardButton(text="Троицкий собор", callback_data="history_trinity")],
-        [InlineKeyboardButton(text="Благовещенский собор", callback_data="history_annunciation")],
-        [InlineKeyboardButton(text="Башни", callback_data="history_towers")],
-        [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")],
-    ]
-)
+history_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text="Довмонтов город", callback_data="history_dovmont")],
+    [InlineKeyboardButton(text="Перси", callback_data="history_persi")],
+    [InlineKeyboardButton(text="Вечевая площадь", callback_data="history_vechevaya")],
+    [InlineKeyboardButton(text="Троицкий собор", callback_data="history_trinity")],
+    [InlineKeyboardButton(text="Благовещенский собор", callback_data="history_annunciation")],
+    [InlineKeyboardButton(text="Башни", callback_data="history_towers")],
+    [InlineKeyboardButton(text="🔙 Назад", callback_data="back_to_main")]
+])
 
-# Вся информация о Кремле
+# Вся информация о Кремле (полностью сохранена, включая раздел places)
 kremlin_info = {
     "history": "📜 Выберите интересующий раздел истории Псковского Кремля:",
+    
     "history_dovmont": """🏰 Довмонтов город - музей под открытым небом
 
 С южной стороны Крома расположен Довмонтов город. Сегодня это большой музей под открытым небом. Он получил своё название по имени князя Довмонта, который на протяжении 33-х лет правил городом (1266 - 1299 гг.). 
@@ -123,6 +73,7 @@ kremlin_info = {
 Во время Северной войны Пётр I стал укреплять город. На территории Довмонтова города расположилась Рождественская батарея. Уровень земли подняли на 4 метра. Все здания и сохранившиеся к тому времени церкви были засыпаны, а в уцелевших размещались склады оружия. 
 
 В начале XIX века остатки обветшалых укреплений и вовсе разобрали за ненадобностью. С тех пор территория эта постепенно превращалась в заросший травой пустырь. Лишь в XX веке начались раскопки и теперь можно видеть частично отрытые фундаменты зданий и церквей.""",
+    
     "history_persi": """🔶 Перси — южная стена Кремля
 
 Перси — южная, приступная стена Крома, которая защищала Вечевую площадь и Троицкий собор. Впервые Перси упоминаются в летописи под 1065 годом, но некоторые исследователи считают, что стена существовала еще в IX в.
@@ -138,6 +89,7 @@ kremlin_info = {
 На стене Персей расположена интересная композиция, установленная в 1972 году в честь 730-летия победы Александра Невского в Ледовом побоище. Её автор — псковский архитектор, реставратор, художник и кузнец Всеволод Петрович Смирнов. На щите в виде воинского знамени изображены герб (барс) и план Пскова. Под прапором находятся пластины с гербами городов, которые участвовали в сражении на льду Чудского озера в 1242 году — Псков, Новгород, Тверь, Владимир и Переславль-Залесский. Колокола символизируют Вечевой и набатный колокола Псковской вечевой республики.
 
 Сегодня Перси со стороны Кремля (с севера) имеют высоту 6 м, а со стороны Довмонтова города (с юга) — около 15 м, что объясняется резким перепадом рельефа. На западной оконечности Персей стоит восьмиугольная Довмонтова (Смердья) башня, а с востока возвышается Часовая (Троицкая) башня.""",
+    
     "history_vechevaya": """🔔 Вечевая площадь — политический центр Пскова
 
 Вечевая площадь — политический центр средневекового Пскова. Она примыкала к Троицкому собору с южной стороны. На вечевой площади в древности решались все самые важные вопросы жизни города: постройки укреплений, мостов, церквей; вопросы заключения мира и объявления войны. С 1348 по 1510 гг. здесь, на этой площади шумело народное собрание — вече. Это был верховный орган власти, на вече псковичи созывались звоном вечевого колокола.
@@ -149,6 +101,7 @@ kremlin_info = {
 В последний раз вечевой колокол звонил 13 января 1510 года, когда завершилась эпоха Псковской вечевой республики и началась история Пскова в составе русского государства Московской Руси.
 
 Сейчас вечевая площадь скрыта позднейшими наслоениями культурного слоя и находится на несколько метров ниже современного уровня поверхности.""",
+    
     "history_trinity": """⛪ Троицкий собор - духовное сердце Пскова
 
 Четвертый по счету храм на этом месте:
@@ -162,11 +115,12 @@ kremlin_info = {
 - Чудотворные иконы
 
 Был закрыт в 1935-1941 гг., вновь освящен в 1941 году.""",
+    
     "history_annunciation": """🔔 Благовещенский собор - утраченная святыня
 
 Собор построен в Псковском кремле в 1836 году для совершения богослужений в зимнее время - в период с 17 октября по шестую неделю после Пасхи. На строительство из казны было отпущено 180 000 рублей ассигнациями.
 
-В 1888 году собор был отделан снаружи на средства бывшего церковного старосты, псковского купца Ивана Чернова. В 1890 году на собственные средства собор отделан внутри, на средства купца Ивана Чернова устроены хоры. На средства Псковского купеческого общества в 1898 году устроен балдахин над мощами святого князя Гавриила. По указу Святейшего Синода от 21 июня 1898 года мощи святого князя ежегодно с 15 октября по 23 апреля переносились из Троицкого собор в Благовещенский.
+В 1888 году собор был отделан снаружи на средства бывшего церковного старосты, псковского купца Ивана Чернова. В 1890 году на собственные средства собор отделан внутри, на средства купца Ивана Чернова устроены хоры. На средства Псковского купеческого общества в 1898 году устроен балдахин над мощами святого князя Гавриила. По указу Святейшего Синода от 21 июня 1898 года мощи святого князя ежегодно с 15 октября по 23 апреля переносились из Троицкого собора в Благовещенский.
 
 В 1920 - 1922 годах Благовещенский собор также как и Троицкий был передан обновленцам.
 
@@ -177,6 +131,7 @@ kremlin_info = {
 В 1933 году собор был взорван. Власти объявили, что нужен строительный материал для электростанции, но в кремле долго лежали монолитные глыбы взорванного собора.
 
 25 апреля 2003 года на месте взорванного собора архиепископом Псковским и Великолукским Евсевием освящен памятный крест.""",
+    
     "history_towers": """🛡️ Башни Кремля - стражи древнего Пскова
 
 Примерно в одно время с Кутекромой на территории Псковского кремля появилась Троицкая башня (1400-1401 годы). Она также имеет другие названия – Лубянская, Великая и Часовая. Старая башня простояла до 1787 года, и была восстановлена вместе с Троицкими воротами в 1988 году.
@@ -194,6 +149,7 @@ kremlin_info = {
 Над долиной Псковы нависает Снетная или Средняя башня – одна из самых высоких в кремле (35 м). Она имеет внушительный диаметр – 11 метров. Сохранились сведения, что помимо оборонных функций, башня служила местом, где держали корм для охранявших кремль собак. Современный вид Снетная башня обрела в 1973 году.
 
 Одна их наиболее живописных башен Псковского кремля стоит возле самого устья Псковы. Приземистая конструкция диаметром 16 м называется Плоской башней. Она гармонично вписывается в окружающий ландшафт и прекрасно смотрится и со стороны реки Великой, и от Псковы. Это единственная из башен кремля, которую не перестраивали на протяжении нескольких столетий. Она сохранила первоначальные пропорции и в наши дни хорошо отреставрирована.""",
+    
     "architecture": """🏰 Архитектура Кремля - гений древних зодчих
 
 Особенности псковской школы зодчества:
@@ -204,6 +160,7 @@ kremlin_info = {
 - Боевые галереи (захабы)
 
 Лучшие мастера участвовали в строительстве Московского Кремля.""",
+    
     "places": """📍 Интересные места Кремля
 
 1. Приказные палаты (XVII в.) - административный центр
@@ -212,10 +169,11 @@ kremlin_info = {
 4. "Смердья башня" - по преданию, место казни
 5. Древний колодец с родниковой водой
 6. Остатки средневековых мостовых""",
-    "map": "🗺 Схема Псковского Кремля",
+    
+    "map": "🗺 Схема Псковского Кремля"
 }
 
-# Все фото
+# Все фото (полностью сохранены)
 photo_urls = [
     "https://wikiway.com/upload/hl-photo/2ab/747/pskovskiy_kreml_29.jpg",
     "https://wikiway.com/upload/hl-photo/f18/15b/pskovskiy_kreml_26.jpg",
@@ -235,7 +193,7 @@ photo_urls = [
     "https://sun9-46.userapi.com/impg/pf2xWQJW0y6kkNUIH662MeddoVBfXyWP5iASAA/kpgzJopajJY.jpg?size=902x1032&quality=95&sign=e3c7e25350df964a21b9ab4319909230&type=album",
 ]
 
-# Исторические фото
+# Исторические фото (полностью сохранены)
 historical_photo_urls = [
     "https://sun9-6.userapi.com/impg/B8l5F5IPWR_KD7dev8uKCByIeujxLOSVW2YNWA/tnPqvpcgwTw.jpg?size=1600x1058&quality=95&sign=9d5d1483cd561dd86107922135fb7b88&type=album",
     "https://sun9-5.userapi.com/impg/X_csfph-aGP7OJy_aCl5DTivCULXU7C_3vE1cA/LX6tAQEu49c.jpg?size=1287x970&quality=95&sign=1972d6031fab6a31f5f67642d3c06bbf&type=album",
@@ -250,20 +208,16 @@ historical_photo_urls = [
     "https://sun9-27.userapi.com/impg/4OIeZlW1pqp4fPWX7lqNBEIjhQv8JbzC4Z-RsA/MiOaROICN0A.jpg?size=1476x1008&quality=95&sign=d962477ca1e9d72921bb4f631c649395&type=album",
 ]
 
-# Загадки
+# Загадки (полностью сохранены)
 riddles_list = [
     ("Какая река протекает рядом с Псковским Кремлем?", "великая"),
     ("Какая река протекает рядом с Псковским Кремлем?", "пскова"),
     ("Сколько башен у Псковского Кремля?", "7"),
     ("Как называется угловая башня псковского Кремля?", "Кутекрома"),
     ("Какой храм находится внутри Кремля?", "троицкий собор"),
-    (
-        "Южная стена Крома называется Перси. А как это слово переводится с древнерусского?",
-        "грудь",
-    ),
+    ("Южная стена Крома называется Перси. А как это слово переводится с древнерусского?", "грудь")
 ]
 
-# Глобальные переменные для хранения состояния
 user_riddles = {}
 user_riddle_lists = {}
 
@@ -271,7 +225,46 @@ user_riddle_lists = {}
 KREMLIN_LAT = 57.8222
 KREMLIN_LON = 28.3281
 
-# ========== ОБРАБОТЧИКИ СООБЩЕНИЙ ==========
+# Функция для получения погоды
+async def get_weather(city: str = "Псков"):
+    try:
+        async with aiohttp.ClientSession() as session:
+            params = {
+                'q': city,
+                'appid': WEATHER_API_KEY,
+                'units': 'metric',
+                'lang': 'ru'
+            }
+            async with session.get(WEATHER_URL, params=params) as response:
+                data = await response.json()
+                if response.status == 200:
+                    weather = data['weather'][0]['description']
+                    temp = data['main']['temp']
+                    feels_like = data['main']['feels_like']
+                    humidity = data['main']['humidity']
+                    wind = data['wind']['speed']
+                    return (f"🌤 Погода в {city}:\n"
+                            f"• Температура: {temp}°C (ощущается как {feels_like}°C)\n"
+                            f"• Состояние: {weather}\n"
+                            f"• Влажность: {humidity}%\n"
+                            f"• Ветер: {wind} м/с")
+                else:
+                    return "Не удалось получить данные о погоде"
+    except Exception as e:
+        logging.error(f"Ошибка при получении погоды: {e}")
+        return "Произошла ошибка при запросе погоды"
+
+# Функция для расчета расстояния
+def calculate_distance(lat1, lon1, lat2, lon2):
+    from math import radians, sin, cos, sqrt, atan2
+    R = 6373.0
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
+    return R * (2 * atan2(sqrt(a), sqrt(1-a)))
+
+# Обработчик команды /start
 @dp.message(Command("start"))
 async def start(message: types.Message):
     welcome_text = """
@@ -298,9 +291,10 @@ async def start(message: types.Message):
         photo="https://sun9-44.userapi.com/impg/0X-6kobOBrTnJs2Bbokd32_wPRZTgXbpCRb7sg/eW2AQNhXvVY.jpg?size=1920x2140&quality=95&sign=294007fe1b9827b841e66b2d730da1ce&type=album",
         caption=welcome_text,
         parse_mode="Markdown",
-        reply_markup=keyboard,
+        reply_markup=keyboard
     )
 
+# Обработчик текстовых сообщений
 @dp.message(F.text)
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
@@ -324,7 +318,7 @@ async def handle_message(message: types.Message):
     elif text == "❓ Загадка":
         if user_id not in user_riddle_lists or not user_riddle_lists[user_id]:
             user_riddle_lists[user_id] = random.sample(riddles_list, len(riddles_list))
-
+        
         riddle, answer = user_riddle_lists[user_id].pop()
         user_riddles[user_id] = (riddle, answer)
         await message.answer(f"❓ Загадка: {riddle}")
@@ -336,6 +330,7 @@ async def handle_message(message: types.Message):
     elif text == "❓ Узнать ответ":
         if user_id in user_riddles:
             riddle, answer = user_riddles[user_id]
+            # Проверяем, является ли загадка про реку
             if "река" in riddle.lower():
                 response = "Правильные ответы:\n1. Великая\n2. Пскова"
             else:
@@ -347,74 +342,62 @@ async def handle_message(message: types.Message):
 
     elif user_id in user_riddles:
         riddle, answer = user_riddles[user_id]
+        # Для загадки про реку принимаем оба варианта
         if "река" in riddle.lower():
             if text.lower() in ["великая", "пскова"]:
                 await message.answer("✅ Правильно!", reply_markup=keyboard)
                 del user_riddles[user_id]
             else:
-                await message.answer(
-                    "❌ Неверно, попробуйте еще раз или нажмите '❓ Узнать ответ'",
-                    reply_markup=answer_keyboard,
-                )
+                await message.answer("❌ Неверно, попробуйте еще раз или нажмите '❓ Узнать ответ'", reply_markup=answer_keyboard)
         else:
             if text.lower() == answer.lower():
                 await message.answer("✅ Правильно!", reply_markup=keyboard)
                 del user_riddles[user_id]
             else:
-                await message.answer(
-                    "❌ Неверно, попробуйте еще раз или нажмите '❓ Узнать ответ'",
-                    reply_markup=answer_keyboard,
-                )
+                await message.answer("❌ Неверно, попробуйте еще раз или нажмите '❓ Узнать ответ'", reply_markup=answer_keyboard)
 
-@dp.message(F.content_type == "location")
+# Обработчик геолокации
+@dp.message(F.content_type == 'location')
 async def handle_location(message: types.Message):
     lat = message.location.latitude
     lon = message.location.longitude
     distance = calculate_distance(lat, lon, KREMLIN_LAT, KREMLIN_LON)
-
+    
     if distance < 0.5:
         response = "🏰 Вы у стен Кремля!"
     elif distance < 5:
         response = f"📍 Вы в {distance:.1f} км от Кремля"
     else:
         response = f"🌍 Вы в {distance:.1f} км от Пскова"
-
+    
     await message.answer(response, reply_markup=keyboard)
 
+# Обработчик callback-запросов
 @dp.callback_query()
 async def handle_callback(callback: types.CallbackQuery):
     data = callback.data
 
     if data == "back_to_main":
         await callback.message.edit_text(
-            "Выберите раздел:", reply_markup=kremlin_inline_keyboard
+            "Выберите раздел:",
+            reply_markup=kremlin_inline_keyboard
         )
     elif data == "history":
         await callback.message.edit_text(
-            kremlin_info["history"], reply_markup=history_keyboard
+            kremlin_info["history"],
+            reply_markup=history_keyboard
         )
     elif data == "map":
         await callback.message.answer_photo(
             "https://sun9-2.userapi.com/impg/SRUn-jZVB031BoD8IBxWUjjaZ7HT3PMKXv1FSg/pSrPAdRyG_o.jpg?size=1600x1156&quality=95&sign=7a665004c8c9ecac218205f7d23fc0ba&type=album",
-            caption=kremlin_info["map"],
+            caption=kremlin_info["map"]
         )
     elif data in kremlin_info:
         await callback.message.edit_text(
             kremlin_info[data],
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        InlineKeyboardButton(
-                            text="🔙 Назад",
-                            callback_data=(
-                                "history"
-                                if data.startswith("history_")
-                                else "back_to_main"
-                            ),
-                        )
-                    ]
-                ]
-            ),
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔙 Назад", callback_data="history" if data.startswith("history_") else "back_to_main")]
+            ])
         )
     elif data == "historical_photos":
         await callback.message.answer("🕰 Исторические фото:")
@@ -425,48 +408,36 @@ async def handle_callback(callback: types.CallbackQuery):
 
     await callback.answer()
 
-# ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
-async def get_weather(city: str = "Псков"):
-    try:
-        async with aiohttp.ClientSession() as session:
-            params = {
-                "q": city,
-                "appid": WEATHER_API_KEY,
-                "units": "metric",
-                "lang": "ru",
-            }
-            async with session.get(WEATHER_URL, params=params) as response:
-                data = await response.json()
-                if response.status == 200:
-                    weather = data["weather"][0]["description"]
-                    temp = data["main"]["temp"]
-                    feels_like = data["main"]["feels_like"]
-                    humidity = data["main"]["humidity"]
-                    wind = data["wind"]["speed"]
-                    return (
-                        f"🌤 Погода в {city}:\n"
-                        f"• Температура: {temp}°C (ощущается как {feels_like}°C)\n"
-                        f"• Состояние: {weather}\n"
-                        f"• Влажность: {humidity}%\n"
-                        f"• Ветер: {wind} м/с"
-                    )
-                else:
-                    return "Не удалось получить данные о погоде"
-    except Exception as e:
-        logging.error(f"Ошибка при получении погоды: {e}")
-        return "Произошла ошибка при запросе погоды"
 
-def calculate_distance(lat1, lon1, lat2, lon2):
-    R = 6373.0
-    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    return R * (2 * atan2(sqrt(a), sqrt(1 - a)))
 
-# ========== ЗАПУСК ПРИЛОЖЕНИЯ ==========
-if __name__ == "__main__":
-    if WEBHOOK_URL:
-        uvicorn.run(app, host="0.0.0.0", port=PORT)
-    else:
-        asyncio.run(dp.start_polling(bot))
+# === FastAPI + Webhook ===
+from fastapi import Request
+
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
+if not WEBHOOK_BASE:
+    raise ValueError("❌ WEBHOOK_BASE_URL не установлен!")
+WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
+
+app = FastAPI()
+
+@app.on_event("startup")
+async def on_startup():
+    await bot.set_webhook(WEBHOOK_URL)
+    print("✅ Webhook установлен:", WEBHOOK_URL)
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    await bot.delete_webhook()
+    await bot.session.close()
+
+@app.get("/")
+async def root():
+    return {"message": "Bot is running"}
+
+@app.post(WEBHOOK_PATH)
+async def telegram_webhook(request: Request):
+    data = await request.json()
+    update = types.Update.model_validate(data)
+    await dp.feed_update(bot, update)
+    return {"ok": True}
