@@ -1,4 +1,3 @@
-
 # === Автоматически добавленные импорты ===
 import os
 from fastapi import FastAPI, Request
@@ -6,7 +5,6 @@ from contextlib import asynccontextmanager
 from aiogram.types import Update
 
 # === Загрузка переменных окружения ===
-
 WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
 if not WEBHOOK_BASE:
     raise ValueError("❌ WEBHOOK_BASE_URL не установлен!")
@@ -473,12 +471,12 @@ WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
 
 app = FastAPI()
 
-@app.on_event("startup")
+# удалено: on_event startup
 async def on_startup():
     await bot.set_webhook(WEBHOOK_URL)
     print("✅ Webhook установлен:", WEBHOOK_URL)
 
-@app.on_event("shutdown")
+# удалено: on_event shutdown
 async def on_shutdown():
     await bot.delete_webhook()
     await bot.session.close()
@@ -500,7 +498,25 @@ async def handle_webhook(request: Request):
     await dp.feed_update(bot, update)
     return {"status": "ok"}
 
-@app.on_event("startup")
+# удалено: on_event startup
 async def on_startup():
     await bot.set_webhook(WEBHOOK_URL)
     print(f"✅ Webhook установлен: {WEBHOOK_URL}")
+
+# === Lifespan ===
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await bot.set_webhook(WEBHOOK_URL)
+    yield
+    await bot.delete_webhook()
+
+# === Переопределяем app с lifespan ===
+app = FastAPI(lifespan=lifespan)
+
+@app.post(WEBHOOK_PATH)
+async def webhook_handler(request: Request):
+    update = Update.model_validate(await request.json())
+    await dp.feed_update(bot, update)
+    return {"ok": True}
