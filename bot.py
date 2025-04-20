@@ -1,14 +1,9 @@
-
 # === Автоматически добавленные импорты ===
 import os
 from fastapi import FastAPI, Request
 from contextlib import asynccontextmanager
 from aiogram.types import Update
-
 # === Загрузка переменных окружения ===
-from dotenv import load_dotenv
-load_dotenv()
-
 WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
 if not WEBHOOK_BASE:
     raise ValueError("❌ WEBHOOK_BASE_URL не установлен!")
