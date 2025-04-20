@@ -415,17 +415,25 @@ WEBHOOK_PATH = "/webhook"
 WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
 WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
 
-app = FastAPI()
 
-@app.on_event("startup")
-async def on_startup():
+from contextlib import asynccontextmanager
+
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
+WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     await bot.set_webhook(WEBHOOK_URL)
     print("✅ Webhook установлен:", WEBHOOK_URL)
-
-@app.on_event("shutdown")
-async def on_shutdown():
+    yield
     await bot.delete_webhook()
     await bot.session.close()
+
+app = FastAPI(lifespan=lifespan)
+
+
+
 
 @app.get("/")
 async def root():
