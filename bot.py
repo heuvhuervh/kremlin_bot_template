@@ -1,44 +1,3 @@
-# === Автоматически добавленные импорты ===
-import os
-from fastapi import FastAPI, Request
-from contextlib import asynccontextmanager
-from aiogram.types import Update
-
-# === Загрузка переменных окружения ===
-WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
-if not WEBHOOK_BASE:
-    raise ValueError("❌ WEBHOOK_BASE_URL не установлен!")
-
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
-
-# === Lifespan для FastAPI ===
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    from bot import bot  # импорт из текущего файла
-    print("🚀 Установка webhook...")
-    await bot.set_webhook(WEBHOOK_URL)
-    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
-    yield
-    print("🛑 Удаление webhook...")
-    await bot.delete_webhook()
-    await bot.session.close()
-
-# === FastAPI приложение ===
-app = FastAPI(lifespan=lifespan)
-
-@app.get("/")
-async def root():
-    return {"status": "ok"}
-
-@app.post(WEBHOOK_PATH)
-async def webhook(request: Request):
-    from bot import dp, bot  # импорт из текущего файла
-    update = Update.model_validate(await request.json())
-    await dp.feed_update(bot, update)
-    return {"ok": True}
-
-# === Основной код пользователя ===
 from fastapi import FastAPI
 import logging
 import asyncio
@@ -51,17 +10,6 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 import os
 
 TOKEN = os.getenv("BOT_TOKEN")
-if not TOKEN:
-    raise ValueError("❌ BOT_TOKEN не установлен!")
-
-WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
-if not WEBHOOK_HOST:
-    raise ValueError("❌ WEBHOOK_HOST не установлен!")
-WEBHOOK_PATH = "/webhook"
-WEBHOOK_URL = WEBHOOK_HOST + WEBHOOK_PATH
-
-if not TOKEN:
-    raise ValueError("❌ BOT_TOKEN не установлен! Проверь переменные окружения.")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
 
@@ -465,18 +413,16 @@ from fastapi import Request
 
 WEBHOOK_PATH = "/webhook"
 WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
-if not WEBHOOK_BASE:
-    raise ValueError("❌ WEBHOOK_BASE_URL не установлен!")
 WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
 
 app = FastAPI()
 
-# удалено: on_event startup
+@app.on_event("startup")
 async def on_startup():
     await bot.set_webhook(WEBHOOK_URL)
     print("✅ Webhook установлен:", WEBHOOK_URL)
 
-# удалено: on_event shutdown
+@app.on_event("shutdown")
 async def on_shutdown():
     await bot.delete_webhook()
     await bot.session.close()
@@ -492,31 +438,6 @@ async def telegram_webhook(request: Request):
     await dp.feed_update(bot, update)
     return {"ok": True}
 
-@app.post("/webhook")
-async def handle_webhook(request: Request):
-    update = Update.model_validate(await request.json())
-    await dp.feed_update(bot, update)
-    return {"status": "ok"}
-
-# удалено: on_event startup
-async def on_startup():
-    await bot.set_webhook(WEBHOOK_URL)
-    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
-
-# === Lifespan ===
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await bot.set_webhook(WEBHOOK_URL)
-    yield
-    await bot.delete_webhook()
-
-# === Переопределяем app с lifespan ===
-app = FastAPI(lifespan=lifespan)
-
-@app.post(WEBHOOK_PATH)
-async def webhook_handler(request: Request):
-    update = Update.model_validate(await request.json())
-    await dp.feed_update(bot, update)
-    return {"ok": True}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
