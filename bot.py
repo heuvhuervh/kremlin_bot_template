@@ -11,6 +11,15 @@ import os
 
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
+    raise ValueError("❌ BOT_TOKEN не установлен!")
+
+WEBHOOK_HOST = os.getenv("WEBHOOK_HOST")
+if not WEBHOOK_HOST:
+    raise ValueError("❌ WEBHOOK_HOST не установлен!")
+WEBHOOK_PATH = "/webhook"
+WEBHOOK_URL = WEBHOOK_HOST + WEBHOOK_PATH
+
+if not TOKEN:
     raise ValueError("❌ BOT_TOKEN не установлен! Проверь переменные окружения.")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
 WEATHER_URL = "http://api.openweathermap.org/data/2.5/weather"
@@ -441,3 +450,14 @@ async def telegram_webhook(request: Request):
     update = types.Update.model_validate(data)
     await dp.feed_update(bot, update)
     return {"ok": True}
+
+@app.post("/webhook")
+async def handle_webhook(request: Request):
+    update = Update.model_validate(await request.json())
+    await dp.feed_update(bot, update)
+    return {"status": "ok"}
+
+@app.on_event("startup")
+async def on_startup():
+    await bot.set_webhook(WEBHOOK_URL)
+    print(f"✅ Webhook установлен: {WEBHOOK_URL}")
