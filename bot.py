@@ -434,7 +434,6 @@ app = FastAPI(lifespan=lifespan)
 
 
 
-
 @app.get("/")
 async def root():
     return {"message": "Bot is running"}
