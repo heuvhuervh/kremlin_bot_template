@@ -6,9 +6,8 @@ import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
-
 import os
-from contextlib import asynccontextmanager  # NEW: Добавлен импорт для lifespan менеджера
+from contextlib import asynccontextmanager  # NEW: Добавлен импорт
 
 TOKEN = os.getenv("BOT_TOKEN")
 WEATHER_API_KEY = os.getenv("WEATHER_API_KEY")
@@ -416,9 +415,9 @@ WEBHOOK_PATH = "/webhook"
 WEBHOOK_BASE = os.getenv("WEBHOOK_BASE_URL")
 WEBHOOK_URL = f"{WEBHOOK_BASE}{WEBHOOK_PATH}"
 
-# NEW: Добавляем функцию для периодического пинга
+# NEW: Функция для самопинга
 async def keep_alive():
-    """Периодически пингует приложение, чтобы оно не засыпало"""
+    """Периодически пингует приложение"""
     while True:
         try:
             async with aiohttp.ClientSession() as session:
@@ -428,10 +427,10 @@ async def keep_alive():
             logging.error(f"Keep-alive error: {e}")
         await asyncio.sleep(15 * 60)  # Пинг каждые 15 минут
 
-# NEW: Обновленный lifespan менеджер с запуском keep-alive задачи
+# NEW: Обновлённый lifespan менеджер
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Запускаем задачу пинга в фоне
+    # Запускаем самопинг
     asyncio.create_task(keep_alive())
     
     await bot.set_webhook(WEBHOOK_URL)
@@ -440,13 +439,13 @@ async def lifespan(app: FastAPI):
     await bot.delete_webhook()
     await bot.session.close()
 
-app = FastAPI(lifespan=lifespan)  # NEW: Используем кастомный lifespan
+app = FastAPI(lifespan=lifespan)  # NEW: Добавлен lifespan
 
 @app.get("/")
 async def root():
     return {"message": "Bot is running"}
 
-# NEW: Добавляем endpoint для пинга
+# NEW: Endpoint для пинга (ДОБАВЬТЕ ПЕРЕД telegram_webhook!)
 @app.get("/ping")
 async def ping():
     return {"status": "alive"}
